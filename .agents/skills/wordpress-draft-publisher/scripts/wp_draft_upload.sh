@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 何を: スクリプト配置ディレクトリを取得。なぜ: 補助スクリプトを相対参照せず確実に呼び出すため。
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# 何を: .envファイルを自動読込。なぜ: 毎回exportせずに安全に認証情報を扱うため。
+if [[ -f ".env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env"
+  set +a
+fi
+
 # 何を: 必須コマンドの存在を事前確認。なぜ: 途中失敗を防いで原因切り分けを容易にするため。
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -12,6 +23,7 @@ need_cmd() {
 need_cmd curl
 need_cmd jq
 need_cmd file
+need_cmd python3
 
 # 何を: API接続設定を環境変数から受け取る。なぜ: 機密情報の直書きを避けるため。
 WP_BASE="${WP_BASE:-}"
@@ -34,7 +46,10 @@ if [[ ! -f "$ARTICLE_MD" ]]; then
 fi
 
 # 何を: 画像ファイルを固定順で収集。なぜ: 実行ごとの差分を減らして再現性を上げるため。
-mapfile -t IMAGES < <(find . -maxdepth 1 -type f \
+IMAGES=()
+while IFS= read -r image; do
+  IMAGES+=("$image")
+done < <(find . -maxdepth 1 -type f \
   \( -name 'switchbot-presence-sensor-pro-*.jpg' -o -name 'switchbot-presence-sensor-pro-*.jpeg' -o -name 'switchbot-presence-sensor-pro-*.png' \) \
   | sed 's|^./||' | sort)
 
@@ -58,8 +73,9 @@ upload_image() {
     --data-binary @"$image"
 }
 
-declare -A MEDIA_ID
-MEDIA_LINES=()
+featured_id=""
+first_uploaded_id=""
+wp_media_json='[]'
 
 for image in "${IMAGES[@]}"; do
   echo "[INFO] upload: $image"
@@ -74,21 +90,31 @@ for image in "${IMAGES[@]}"; do
     exit 1
   fi
 
-  MEDIA_ID["$image"]="$id"
-  MEDIA_LINES+=("<li><a href=\"${url}\">${image}</a></li>")
+  if [[ -z "$first_uploaded_id" ]]; then
+    first_uploaded_id="$id"
+  fi
+  if [[ "$image" == "$FEATURED_IMAGE" ]]; then
+    featured_id="$id"
+  fi
+
+  # 何を: 画像メタ情報をJSON配列として保持。なぜ: HTML変換時にfigureタグへID/URLを埋め込むため。
+  wp_media_json="$(jq -c \
+    --arg filename "$image" \
+    --arg url "$url" \
+    --argjson id "$id" \
+    '. + [{filename:$filename, id:$id, url:$url}]' <<<"$wp_media_json")"
 done
 
-featured_id="${MEDIA_ID[$FEATURED_IMAGE]:-}"
 if [[ -z "$featured_id" ]]; then
   echo "[WARN] featured image not found in upload set: $FEATURED_IMAGE" >&2
-  featured_id="${MEDIA_ID[${IMAGES[0]}]}"
+  featured_id="$first_uploaded_id"
 fi
 
-# 何を: Markdown本文をそのまま表示できるHTMLへ変換。なぜ: 依存を増やさずAPI投稿を安定させるため。
-body_text="$(cat "$ARTICLE_MD")"
-body_escaped="$(printf '%s' "$body_text" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
-media_html="<h2>画像一覧</h2><ul>$(printf '%s' "${MEDIA_LINES[*]}")</ul>"
-content_html="<pre>${body_escaped}</pre>${media_html}"
+# 何を: MarkdownをWordPress向けHTMLへ変換。なぜ: 投稿時にh2/h3/h4, p, ul/li, figureの形で入稿するため。
+export WP_MEDIA_JSON="$wp_media_json"
+export FEATURED_IMAGE
+export POST_TITLE
+content_html="$(python3 "$SCRIPT_DIR/md_to_wp_html.py" "$ARTICLE_MD")"
 
 payload="$(jq -n \
   --arg title "$POST_TITLE" \
