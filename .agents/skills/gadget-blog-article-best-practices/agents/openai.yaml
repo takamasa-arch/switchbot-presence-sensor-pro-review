@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gadget Blog Article Best Practices"
+  short_description: "Guide polished gadget review article workflows"
+  default_prompt: "Use $gadget-blog-article-best-practices to draft or refine a polished gadget review article for DIGILINE."

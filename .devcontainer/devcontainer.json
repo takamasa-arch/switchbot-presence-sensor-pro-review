@@ -1,0 +1,14 @@
+{
+  "//": "何を: 最小の開発コンテナ設定を追加する。なぜ: 将来の再現可能な編集環境を用意するため。",
+  "name": "digiline",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "yzhang.markdown-all-in-one"
+      ]
+    }
+  },
+  "postCreateCommand": "python3 --version"
+}
