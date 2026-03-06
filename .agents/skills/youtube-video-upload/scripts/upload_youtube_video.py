@@ -48,6 +48,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--thumbnail", help="Optional thumbnail image path.")
     parser.add_argument(
+        "--force-reauth",
+        action="store_true",
+        help="Ignore any existing token file and force a fresh OAuth login.",
+    )
+    parser.add_argument(
+        "--auth-prompt",
+        default="consent select_account",
+        help="OAuth prompt value. Default: 'consent select_account'",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the upload payload and exit without calling Google APIs.",
@@ -103,7 +113,7 @@ def build_service(args: argparse.Namespace):
     token_path = Path(args.token_file)
     creds = None
 
-    if token_path.exists():
+    if token_path.exists() and not args.force_reauth:
         creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
 
     if not creds or not creds.valid:
@@ -111,7 +121,12 @@ def build_service(args: argparse.Namespace):
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(args.client_secrets, SCOPES)
-            creds = flow.run_local_server(port=0)
+            # 何を: アカウント選択付きでOAuthを取り直せるようにする。なぜ: 別アカウントの既存セッションを誤って再利用しないため。
+            creds = flow.run_local_server(
+                port=0,
+                access_type="offline",
+                prompt=args.auth_prompt,
+            )
         token_path.write_text(creds.to_json(), encoding="utf-8")
 
     return build("youtube", "v3", credentials=creds)
@@ -151,6 +166,8 @@ def main() -> int:
             "thumbnail": args.thumbnail,
             "client_secrets": args.client_secrets,
             "token_file": args.token_file,
+            "force_reauth": args.force_reauth,
+            "auth_prompt": args.auth_prompt,
             "scope": SCOPES,
             "body": body,
         }

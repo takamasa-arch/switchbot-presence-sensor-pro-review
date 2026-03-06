@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Dict, List
 
 
@@ -26,6 +27,13 @@ def make_figure(media: Dict[str, str], alt_text: str) -> str:
         f'<img src="{src}" alt="{alt}" class="wp-image-{image_id}"/>'
         f"</figure>"
     )
+
+
+def parse_markdown_image(stripped: str) -> tuple[str, str] | None:
+    match = re.match(r'^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)$', stripped)
+    if not match:
+        return None
+    return match.group(1).strip(), Path(match.group(2).strip()).name
 
 
 def build_media_map() -> Dict[str, Dict[str, str]]:
@@ -75,7 +83,12 @@ def parse_table_row(line: str) -> List[str]:
     return [cell.strip() for cell in row.split("|")]
 
 
-def convert_markdown(md_text: str, insert_plan: Dict[str, Dict[str, str]], alt_map: Dict[str, str]) -> str:
+def convert_markdown(
+    md_text: str,
+    media_map: Dict[str, Dict[str, str]],
+    insert_plan: Dict[str, Dict[str, str]],
+    alt_map: Dict[str, str],
+) -> str:
     lines = md_text.splitlines()
     out: List[str] = []
     paragraph: List[str] = []
@@ -113,6 +126,17 @@ def convert_markdown(md_text: str, insert_plan: Dict[str, Dict[str, str]], alt_m
 
         if stripped == "---":
             flush_paragraph()
+            i += 1
+            continue
+
+        image = parse_markdown_image(stripped)
+        if image:
+            flush_paragraph()
+            alt_text, filename = image
+            if filename in media_map:
+                media = media_map[filename]
+                alt = alt_map.get(filename, alt_text or f"{filename}のイメージ")
+                out.append(make_figure(media, alt))
             i += 1
             continue
 
@@ -187,7 +211,7 @@ def main() -> None:
     insert_plan = build_insert_plan(media_map)
     alt_map = build_alt_map()
 
-    html_body = convert_markdown(md_text, insert_plan, alt_map)
+    html_body = convert_markdown(md_text, media_map, insert_plan, alt_map)
     print(html_body)
 
 

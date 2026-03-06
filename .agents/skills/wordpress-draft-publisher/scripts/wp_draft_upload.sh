@@ -39,6 +39,7 @@ POST_TITLE="${POST_TITLE:-SwitchBot人感センサーPro レビュー}"
 POST_SLUG="${POST_SLUG:-switchbot-presence-sensor-pro-review}"
 ARTICLE_MD="${ARTICLE_MD:-switchbot-presence-sensor-pro-review.md}"
 FEATURED_IMAGE="${FEATURED_IMAGE:-switchbot-presence-sensor-pro-06.jpg}"
+IMAGE_GLOB_PREFIX="${IMAGE_GLOB_PREFIX:-$POST_SLUG}"
 
 if [[ ! -f "$ARTICLE_MD" ]]; then
   echo "[ERROR] article not found: $ARTICLE_MD" >&2
@@ -50,11 +51,11 @@ IMAGES=()
 while IFS= read -r image; do
   IMAGES+=("$image")
 done < <(find . -maxdepth 1 -type f \
-  \( -name 'switchbot-presence-sensor-pro-*.jpg' -o -name 'switchbot-presence-sensor-pro-*.jpeg' -o -name 'switchbot-presence-sensor-pro-*.png' \) \
+  \( -name "${IMAGE_GLOB_PREFIX}-*.jpg" -o -name "${IMAGE_GLOB_PREFIX}-*.jpeg" -o -name "${IMAGE_GLOB_PREFIX}-*.png" \) \
   | sed 's|^./||' | sort)
 
 if [[ ${#IMAGES[@]} -eq 0 ]]; then
-  echo "[ERROR] no images found (switchbot-presence-sensor-pro-*.jpg/png)" >&2
+  echo "[ERROR] no images found (${IMAGE_GLOB_PREFIX}-*.jpg/png)" >&2
   exit 1
 fi
 
