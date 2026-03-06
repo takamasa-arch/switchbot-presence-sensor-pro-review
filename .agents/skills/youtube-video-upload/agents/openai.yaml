@@ -1,0 +1,4 @@
+interface:
+  display_name: "YouTube Video Upload"
+  short_description: "YouTube動画を安全にアップロードする実務向けスキル"
+  default_prompt: "Use $youtube-video-upload to upload a local video to YouTube with validated metadata."

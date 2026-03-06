@@ -5,6 +5,7 @@ _original/
 .env
 .env.*
 !.env.example
+.secrets/
 # 何を: Pythonのキャッシュを除外する。なぜ: 生成物をコミット対象から外すため。
 __pycache__/
 *.pyc

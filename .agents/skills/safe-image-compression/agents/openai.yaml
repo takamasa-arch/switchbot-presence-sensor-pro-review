@@ -1,0 +1,4 @@
+interface:
+  display_name: "Safe Image Compression"
+  short_description: "ffmpegで原本を守りつつ画像を安全に圧縮する"
+  default_prompt: "Use $safe-image-compression to compress and rename article images without overwriting the originals."
